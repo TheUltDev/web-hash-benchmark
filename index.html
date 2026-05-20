@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SHA-256 Browser Benchmark</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>SHA-256 Browser Benchmark</h1>
+      <p class="subtitle">Compare custom asm.js vs hash-wasm on your files</p>
+    </header>
+
+    <main>
+      <section class="controls">
+        <div id="drop-zone" class="drop-zone" tabindex="0">
+          <p>Drop files here or click to browse</p>
+          <input id="file-input" type="file" multiple hidden />
+        </div>
+
+        <div class="file-list" id="file-list"></div>
+
+        <div class="actions">
+          <label>
+            Iterations
+            <input id="iterations" type="number" min="1" max="10" value="1" />
+          </label>
+          <button id="run-btn" type="button" disabled>Run benchmark</button>
+          <button id="clear-btn" type="button" disabled>Clear</button>
+        </div>
+      </section>
+
+      <section class="progress-section" id="progress-section" hidden>
+        <h2>Progress</h2>
+        <div id="progress-bars"></div>
+      </section>
+
+      <section class="results-section">
+        <h2>Results</h2>
+        <table id="results-table">
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Size</th>
+              <th>Implementation</th>
+              <th>Iteration</th>
+              <th>Time</th>
+              <th>Throughput</th>
+              <th>Hash</th>
+              <th>Match</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+        <div id="summary" class="summary" hidden></div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

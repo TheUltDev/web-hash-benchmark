@@ -1,6 +1,6 @@
 /// <reference lib="webworker"/>
 
-import {Sha256} from './lib/index';
+import {createSHA256, sha256 as sha256OneShot} from 'hash-wasm';
 import {getFileAccess, getFileBuffer} from '../common';
 import type {FileSystemIn} from '../types';
 
@@ -20,7 +20,6 @@ const INCREMENTAL_THRESHOLD = Math.max(
 self.onmessage = async (e: MessageEvent<FileSystemIn>) => {
   const [file, total] = await getFileAccess(e.data, true);
 
-  // Not big enough to incremental hash
   if (total <= INCREMENTAL_THRESHOLD) {
     try {
       const hash = await hashSimple(file);
@@ -28,7 +27,6 @@ self.onmessage = async (e: MessageEvent<FileSystemIn>) => {
     } catch (error) {
       self.postMessage({type: 'hash::failure', payload: error});
     }
-  // Incremental hashing
   } else {
     try {
       const hash = await hashIncremental(file, total, (bytes) =>
@@ -42,9 +40,7 @@ self.onmessage = async (e: MessageEvent<FileSystemIn>) => {
 
 async function hashSimple(file: File | FileSystemSyncAccessHandle) {
   const buffer = await getFileBuffer(file);
-  const digest = Sha256.bytes(new Uint8Array(buffer));
-  if (!digest) throw new Error('Unable to hash file');
-  return bytesToHex(digest);
+  return sha256OneShot(new Uint8Array(buffer));
 }
 
 async function hashIncremental(
@@ -52,20 +48,19 @@ async function hashIncremental(
   total: number,
   progress: (bytes: number) => void,
 ) {
-  const hash = new Sha256();
+  const hasher = await createSHA256();
+  hasher.init();
   let bytes = 0;
 
-  // Async access to File
   if (file instanceof File) {
     const stream = file.stream();
     await stream.pipeTo(new WritableStream({
       write(chunk) {
-        hash.process(chunk);
+        hasher.update(chunk);
         bytes += chunk.byteLength;
         progress(bytes);
-      }
+      },
     }));
-  // Sync access to OPFS
   } else {
     const unitSize = Math.min(CHUNK_SIZE, total);
     const unitCount = Math.floor(total / unitSize);
@@ -74,21 +69,12 @@ async function hashIncremental(
       const end = Math.min(unitSize * (unit + 1), total);
       const dat = new ArrayBuffer(end - start);
       file.read(dat, {at: start});
-      hash.process(new Uint8Array(dat));
+      hasher.update(new Uint8Array(dat));
       bytes += dat.byteLength;
       progress(bytes);
     }
     file.close();
   }
 
-  // Finish hashing
-  const digest = hash.finish().result;
-  if (!digest) throw new Error('Unable to hash file');
-  return bytesToHex(digest);
-}
-
-function bytesToHex(data: Uint8Array): string {
-  return Array.from(data)
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+  return hasher.digest('hex') as string;
 }

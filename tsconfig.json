@@ -1,7 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    "baseUrl": "./src",
     "lib": ["ESNext", "DOM"],
     "target": "ESNext",
     "module": "ESNext",
@@ -20,9 +19,6 @@
     "allowJs": true,
     "skipLibCheck": true
   },
-  "exclude": [
-    "lib",
-    "node_modules",
-    "vocs.config.ts"
-  ]
+  "include": ["src", "sha256"],
+  "exclude": ["node_modules"]
 }
