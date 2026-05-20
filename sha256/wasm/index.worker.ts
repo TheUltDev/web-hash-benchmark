@@ -4,11 +4,24 @@ import {createSHA256} from 'hash-wasm';
 import {getFileAccess} from '../common';
 import {DEFAULT_CHUNK_SIZE, type HashWorkerIn} from '../types';
 
-self.onmessage = async (e: MessageEvent<HashWorkerIn>) => {
-  const {input, chunkSize = DEFAULT_CHUNK_SIZE} = e.data;
-  const [file, total] = await getFileAccess(input, true);
+// Reused across messages so the WASM module gets compiled, instantiated, and
+// tiered up to optimized code before any timed run begins.
+const WARMUP_BUFFER = new Uint8Array(256 * 1024);
 
+// hash-wasm caches the compiled module per-worker; keep the hasher itself
+// around so we never pay creation cost during timed iterations.
+const hasherReady = createSHA256();
+
+self.onmessage = async (e: MessageEvent<HashWorkerIn>) => {
+  const msg = e.data;
   try {
+    if (msg.kind === 'warmup') {
+      await runWarmup();
+      self.postMessage({type: 'hash::warmed'});
+      return;
+    }
+    const {input, chunkSize = DEFAULT_CHUNK_SIZE} = msg;
+    const [file, total] = await getFileAccess(input, true);
     const result = await hashFile(file, total, chunkSize, (bytes) =>
       self.postMessage({type: 'hash::progress', payload: {bytes, total}}));
     self.postMessage({type: 'hash::complete', payload: result});
@@ -17,13 +30,24 @@ self.onmessage = async (e: MessageEvent<HashWorkerIn>) => {
   }
 };
 
+async function runWarmup() {
+  const hasher = await hasherReady;
+  // A few passes through the hot path are enough for the WASM engine to swap
+  // baseline (Liftoff) for optimized (TurboFan) code; output is discarded.
+  for (let i = 0; i < 4; i++) {
+    hasher.init();
+    hasher.update(WARMUP_BUFFER);
+    hasher.digest('hex');
+  }
+}
+
 async function hashFile(
   file: File | FileSystemSyncAccessHandle,
   total: number,
   chunkSize: number,
   progress: (bytes: number) => void,
 ) {
-  const hasher = await createSHA256();
+  const hasher = await hasherReady;
   hasher.init();
   const start = performance.now();
   let bytes = 0;

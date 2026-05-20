@@ -4,10 +4,20 @@ import {Sha256} from './lib/index';
 import {bytesToHex, getFileAccess} from '../common';
 import {DEFAULT_CHUNK_SIZE, type HashWorkerIn} from '../types';
 
+// Reused across messages so V8 has every opportunity to tier the hot loop up
+// to its optimizing compiler before any timed run.
+const WARMUP_BUFFER = new Uint8Array(256 * 1024);
+
 self.onmessage = async (e: MessageEvent<HashWorkerIn>) => {
-  const {input, chunkSize = DEFAULT_CHUNK_SIZE} = e.data;
-  const [file, total] = await getFileAccess(input, true);
+  const msg = e.data;
   try {
+    if (msg.kind === 'warmup') {
+      runWarmup();
+      self.postMessage({type: 'hash::warmed'});
+      return;
+    }
+    const {input, chunkSize = DEFAULT_CHUNK_SIZE} = msg;
+    const [file, total] = await getFileAccess(input, true);
     const result = await hashFile(file, total, chunkSize, (bytes) =>
       self.postMessage({type: 'hash::progress', payload: {bytes, total}}));
     self.postMessage({type: 'hash::complete', payload: result});
@@ -15,6 +25,16 @@ self.onmessage = async (e: MessageEvent<HashWorkerIn>) => {
     self.postMessage({type: 'hash::failure', payload: error});
   }
 };
+
+function runWarmup() {
+  // A few passes through the hot path are enough for V8 to swap baseline for
+  // optimized code; the hash output itself is discarded.
+  for (let i = 0; i < 4; i++) {
+    const hash = new Sha256();
+    hash.process(WARMUP_BUFFER);
+    hash.finish();
+  }
+}
 
 async function hashFile(
   file: File | FileSystemSyncAccessHandle,

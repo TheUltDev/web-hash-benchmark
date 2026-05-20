@@ -4,15 +4,19 @@ import {removeOpfsPath, writeFileToOpfs} from '../sha256/common';
 import {DEFAULT_CHUNK_SIZE} from '../sha256/types';
 import type {FileSystemIn, HashResult} from '../sha256/types';
 
-export interface HashImpl {
-  name: string;
-  start: (
+export interface HashSession {
+  warmup: () => Promise<void>;
+  hash: (
     input: FileSystemIn,
     progress?: (bytes: number, total: number) => void,
-    jobId?: number,
     chunkSize?: number,
   ) => Promise<HashResult>;
-  cancel: (jobId: number) => void;
+  dispose: () => void;
+}
+
+export interface HashImpl {
+  name: string;
+  create: () => HashSession;
 }
 
 export const implementations: HashImpl[] = [
@@ -80,24 +84,24 @@ export async function runBenchmark(
     input = opfsPath;
   }
 
+  // One long-lived worker per impl so the WASM module is compiled and the
+  // hot path is tiered up to optimized code once, not on every iteration.
+  const sessions = implementations.map((impl) => ({impl, session: impl.create()}));
+
   try {
-    // Load workers/WASM/JIT for every implementation before any timed run so
-    // iteration order does not affect results.
-    const warmupChunk = chunkSizes[0] === STREAM_CHUNK ? undefined : chunkSizes[0];
-    for (const impl of implementations) {
-      await impl.start(input, undefined, undefined, warmupChunk);
-    }
+    // Run a cheap synthetic hash in every worker to push the engine through
+    // baseline -> optimized compilation before any timed run starts.
+    await Promise.all(sessions.map(({session}) => session.warmup()));
 
     for (let iter = 1; iter <= iterations; iter++) {
       for (const chunkSize of chunkSizes) {
-        for (const impl of implementations) {
+        for (const {impl, session} of sessions) {
           const jobId = nextJobId++;
           const label = `${file.name} · ${impl.name} · ${formatChunkSize(chunkSize)} · #${iter}`;
 
-          const {hash, elapsedMs} = await impl.start(
+          const {hash, elapsedMs} = await session.hash(
             input,
             (bytes, total) => onProgress?.({jobId: String(jobId), label, bytes, total}),
-            jobId,
             chunkSize === STREAM_CHUNK ? undefined : chunkSize,
           );
 
@@ -118,6 +122,7 @@ export async function runBenchmark(
       }
     }
   } finally {
+    for (const {session} of sessions) session.dispose();
     if (opfsPath) await removeOpfsPath(opfsPath);
   }
 

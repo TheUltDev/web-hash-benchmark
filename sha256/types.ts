@@ -1,10 +1,9 @@
 export type FileSystemIn = string | File | FileSystemSyncAccessHandle;
 export type FileSystemOut = File | FileSystemSyncAccessHandle;
 
-export interface HashWorkerIn {
-  input: FileSystemIn;
-  chunkSize?: number;
-}
+export type HashWorkerIn =
+  | {kind: 'warmup'}
+  | {kind: 'hash'; input: FileSystemIn; chunkSize?: number};
 
 export interface HashResult {
   hash: string;
