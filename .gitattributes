@@ -1,0 +1,3 @@
+# Default line ending
+# Force Unix line endings for Windows
+* text=auto eol=lf
