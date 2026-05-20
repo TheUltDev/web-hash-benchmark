@@ -95,6 +95,20 @@ export async function getFileAccess(
   return [input, input.size];
 }
 
+export async function writeFileToOpfs(file: File): Promise<string> {
+  const name = `bench-${Date.now()}-${file.name}`;
+  const handle = await getFileHandle(name, {create: true});
+  if (!handle) throw new Error('Unable to create OPFS file handle');
+  const writable = await handle.createWritable();
+  await file.stream().pipeTo(writable);
+  return name;
+}
+
+export async function removeOpfsPath(path: string): Promise<void> {
+  const root = await getRoot();
+  await root.removeEntry(path).catch(() => {});
+}
+
 export async function getFileBuffer(
   input: FileSystemIn,
 ): Promise<ArrayBuffer> {
@@ -109,4 +123,10 @@ export async function getFileBuffer(
   file.read(buffer, {at: 0});
   file.close();
   return buffer;
+}
+
+export function bytesToHex(data: Uint8Array): string {
+  return Array.from(data)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }

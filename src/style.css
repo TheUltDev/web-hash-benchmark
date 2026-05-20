@@ -241,11 +241,22 @@ tr.mismatch td {
   border: 1px solid var(--border);
 }
 
-.summary h3 {
-  margin: 0 0 0.75rem;
+.summary-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem 2.5rem;
+}
+
+.summary-column {
+  flex: 1 1 12rem;
+  min-width: 10rem;
+}
+
+.summary-impl {
+  margin: 0 0 0.5rem;
   font-size: 0.95rem;
-  color: var(--muted);
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .summary dl {

@@ -14,17 +14,19 @@ npm install
 npm run dev
 ```
 
-Open the URL shown in the terminal (typically `http://localhost:5173`), drop one or more files, and click **Run benchmark**.
+Open the URL shown in the terminal (typically `http://localhost:5173`), drop a file, and click **Run benchmark**.
+
+Enable **Use OPFS sync access** to copy the file into the Origin Private File System once, then hash it via `FileSystemSyncAccessHandle` inside the workers (sync reads). Leave it off to hash the dropped `File` directly with async streaming.
 
 ## What it measures
 
-For each file and implementation the benchmark records:
+For each implementation the benchmark records:
 
 - Elapsed time (ms)
 - Throughput (MB/s)
 - SHA-256 hash (hex)
 
-Hashes from both implementations are compared per file; mismatches are highlighted. A summary shows total bytes processed and average throughput per implementation.
+Hashes from both implementations are compared per iteration; mismatches are highlighted. A summary shows total bytes processed and average throughput per implementation.
 
 ## Scripts
 

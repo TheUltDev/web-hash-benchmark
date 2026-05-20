@@ -1,10 +1,12 @@
 import asmjs from '../sha256/asmjs/index';
 import wasm from '../sha256/wasm/index';
+import {removeOpfsPath, writeFileToOpfs} from '../sha256/common';
+import type {FileSystemIn} from '../sha256/types';
 
 export interface HashImpl {
   name: string;
   start: (
-    input: File,
+    input: FileSystemIn,
     progress?: (bytes: number, total: number) => void,
     jobId?: number,
   ) => Promise<string>;
@@ -44,16 +46,23 @@ export interface ProgressUpdate {
 let nextJobId = 0;
 
 export async function runBenchmark(
-  files: File[],
+  file: File,
   iterations: number,
+  options: {sync: boolean},
   onProgress?: (update: ProgressUpdate) => void,
 ): Promise<{rows: BenchmarkRow[]; summary: BenchmarkSummary[]}> {
   const rows: BenchmarkRow[] = [];
-  const hashesByFile = new Map<string, Map<string, string>>();
+  const hashes = new Map<string, string>();
 
-  for (const file of files) {
-    const fileHashes = new Map<string, string>();
+  let input: FileSystemIn = file;
+  let opfsPath: string | undefined;
 
+  if (options.sync) {
+    opfsPath = await writeFileToOpfs(file);
+    input = opfsPath;
+  }
+
+  try {
     for (let iter = 1; iter <= iterations; iter++) {
       for (const impl of implementations) {
         const jobId = nextJobId++;
@@ -61,7 +70,7 @@ export async function runBenchmark(
         const start = performance.now();
 
         const hash = await impl.start(
-          file,
+          input,
           (bytes, total) => onProgress?.({jobId: String(jobId), label, bytes, total}),
           jobId,
         );
@@ -69,7 +78,7 @@ export async function runBenchmark(
         const elapsedMs = performance.now() - start;
         const throughputMbps = file.size / (elapsedMs / 1000) / (1024 * 1024);
 
-        fileHashes.set(`${impl.name}:${iter}`, hash);
+        hashes.set(`${impl.name}:${iter}`, hash);
 
         rows.push({
           fileName: file.name,
@@ -83,15 +92,12 @@ export async function runBenchmark(
         });
       }
     }
-
-    hashesByFile.set(file.name, fileHashes);
+  } finally {
+    if (opfsPath) await removeOpfsPath(opfsPath);
   }
 
   for (const row of rows) {
-    const fileHashes = hashesByFile.get(row.fileName);
-    if (!fileHashes) continue;
-
-    const reference = fileHashes.get(`asmjs:${row.iteration}`);
+    const reference = hashes.get(`asmjs:${row.iteration}`);
     row.match = reference !== undefined && row.hash === reference;
   }
 

@@ -1,61 +1,29 @@
 /// <reference lib="webworker"/>
 
 import {Sha256} from './lib/index';
-import {getFileAccess, getFileBuffer} from '../common';
+import {bytesToHex, getFileAccess} from '../common';
 import type {FileSystemIn} from '../types';
 
-// @ts-ignore
-// biome-ignore lint/complexity/useLiteralKeys: TS doesn't know about deviceMemory
-const MEMORY = navigator['deviceMemory'] || 0.2;
-const CORES = Math.max(navigator.hardwareConcurrency || 1, 5);
-
-const MEGABYTE = 1024 * 1024;
-const GIGABYTE = 1024 * MEGABYTE;
-const CHUNK_SIZE = 1 * MEGABYTE;
-const INCREMENTAL_THRESHOLD = Math.max(
-  20 * MEGABYTE,
-  (MEMORY / CORES) * GIGABYTE - (200 * MEGABYTE),
-);
+const CHUNK_SIZE = 1024 * 1024;
 
 self.onmessage = async (e: MessageEvent<FileSystemIn>) => {
   const [file, total] = await getFileAccess(e.data, true);
-
-  // Not big enough to incremental hash
-  if (total <= INCREMENTAL_THRESHOLD) {
-    try {
-      const hash = await hashSimple(file);
-      self.postMessage({type: 'hash::complete', payload: hash});
-    } catch (error) {
-      self.postMessage({type: 'hash::failure', payload: error});
-    }
-  // Incremental hashing
-  } else {
-    try {
-      const hash = await hashIncremental(file, total, (bytes) =>
-        self.postMessage({type: 'hash::progress', payload: {bytes, total}}));
-      self.postMessage({type: 'hash::complete', payload: hash});
-    } catch (error) {
-      self.postMessage({type: 'hash::failure', payload: error});
-    }
+  try {
+    const hash = await hashFile(file, total, (bytes) =>
+      self.postMessage({type: 'hash::progress', payload: {bytes, total}}));
+    self.postMessage({type: 'hash::complete', payload: hash});
+  } catch (error) {
+    self.postMessage({type: 'hash::failure', payload: error});
   }
 };
 
-async function hashSimple(file: File | FileSystemSyncAccessHandle) {
-  const buffer = await getFileBuffer(file);
-  const digest = Sha256.bytes(new Uint8Array(buffer));
-  if (!digest) throw new Error('Unable to hash file');
-  return bytesToHex(digest);
-}
-
-async function hashIncremental(
+async function hashFile(
   file: File | FileSystemSyncAccessHandle,
   total: number,
   progress: (bytes: number) => void,
 ) {
   const hash = new Sha256();
   let bytes = 0;
-
-  // Async access to File
   if (file instanceof File) {
     const stream = file.stream();
     await stream.pipeTo(new WritableStream({
@@ -63,9 +31,8 @@ async function hashIncremental(
         hash.process(chunk);
         bytes += chunk.byteLength;
         progress(bytes);
-      }
+      },
     }));
-  // Sync access to OPFS
   } else {
     const unitSize = Math.min(CHUNK_SIZE, total);
     const unitCount = Math.floor(total / unitSize);
@@ -80,15 +47,7 @@ async function hashIncremental(
     }
     file.close();
   }
-
-  // Finish hashing
   const digest = hash.finish().result;
   if (!digest) throw new Error('Unable to hash file');
   return bytesToHex(digest);
-}
-
-function bytesToHex(data: Uint8Array): string {
-  return Array.from(data)
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
 }

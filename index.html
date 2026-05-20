@@ -9,14 +9,14 @@
   <body>
     <header>
       <h1>SHA-256 Browser Benchmark</h1>
-      <p class="subtitle">Compare custom asm.js vs hash-wasm on your files</p>
+      <p class="subtitle">Compare incremental hashing solutions for browsers</p>
     </header>
 
     <main>
       <section class="controls">
         <div id="drop-zone" class="drop-zone" tabindex="0">
-          <p>Drop files here or click to browse</p>
-          <input id="file-input" type="file" multiple hidden />
+          <p>Drop a file here or click to browse</p>
+          <input id="file-input" type="file" hidden />
         </div>
 
         <div class="file-list" id="file-list"></div>
@@ -25,6 +25,10 @@
           <label>
             Iterations
             <input id="iterations" type="number" min="1" max="10" value="1" />
+          </label>
+          <label>
+            <input id="sync-mode" type="checkbox" />
+            Use OPFS sync access
           </label>
           <button id="run-btn" type="button" disabled>Run benchmark</button>
           <button id="clear-btn" type="button" disabled>Clear</button>

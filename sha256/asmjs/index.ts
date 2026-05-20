@@ -1,5 +1,4 @@
-// @ts-ignore
-import HashWorker from './index.worker?worker&inline';
+import HashWorker from './index.worker?worker';
 import type {FileSystemIn} from '../types';
 
 const _workers = new Map<number, Worker>();
@@ -12,7 +11,6 @@ async function start(
   const worker: Worker = new HashWorker();
   worker.postMessage(input);
   jobId && _workers.set(jobId, worker);
-
   return new Promise<string>((resolve, reject) => {
     worker.onmessage = (e) => {
       switch (e.data.type) {
@@ -35,7 +33,6 @@ async function start(
         }
       }
     };
-
     worker.onerror = (e) => {
       reject(e.message ? e : new Error('Hash worker failed'));
     };

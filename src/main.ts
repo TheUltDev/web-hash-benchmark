@@ -15,42 +15,34 @@ const fileList = document.getElementById('file-list')!;
 const runBtn = document.getElementById('run-btn') as HTMLButtonElement;
 const clearBtn = document.getElementById('clear-btn') as HTMLButtonElement;
 const iterationsInput = document.getElementById('iterations') as HTMLInputElement;
+const syncInput = document.getElementById('sync-mode') as HTMLInputElement;
 const progressSection = document.getElementById('progress-section')!;
 const progressBars = document.getElementById('progress-bars')!;
 const resultsBody = document.getElementById('results-body')!;
 const summaryEl = document.getElementById('summary')!;
 
-let selectedFiles: File[] = [];
+let selectedFile: File | null = null;
 let running = false;
 
 function updateFileList() {
-  if (selectedFiles.length === 0) {
+  if (!selectedFile) {
     fileList.innerHTML = '';
     runBtn.disabled = true;
     clearBtn.disabled = true;
+    syncInput.disabled = false;
     return;
   }
 
-  fileList.innerHTML = `<ul>${selectedFiles
-    .map(
-      (f) =>
-        `<li><span class="name">${escapeHtml(f.name)}</span><span>${formatBytes(f.size)}</span></li>`,
-    )
-    .join('')}</ul>`;
+  fileList.innerHTML = `<ul><li><span class="name">${escapeHtml(selectedFile.name)}</span><span>${formatBytes(selectedFile.size)}</span></li></ul>`;
   runBtn.disabled = running;
   clearBtn.disabled = running;
+  syncInput.disabled = running;
 }
 
-function addFiles(files: FileList | File[]) {
-  const incoming = Array.from(files);
-  const existing = new Set(selectedFiles.map((f) => `${f.name}:${f.size}:${f.lastModified}`));
-  for (const f of incoming) {
-    const key = `${f.name}:${f.size}:${f.lastModified}`;
-    if (!existing.has(key)) {
-      selectedFiles.push(f);
-      existing.add(key);
-    }
-  }
+function setFile(files: FileList | File[]) {
+  const list = Array.from(files);
+  if (list.length === 0) return;
+  selectedFile = list[list.length - 1];
   updateFileList();
 }
 
@@ -74,16 +66,16 @@ dropZone.addEventListener('dragleave', () => {
 dropZone.addEventListener('drop', (e) => {
   e.preventDefault();
   dropZone.classList.remove('drag-over');
-  if (e.dataTransfer?.files.length) addFiles(e.dataTransfer.files);
+  if (e.dataTransfer?.files.length) setFile(e.dataTransfer.files);
 });
 
 fileInput.addEventListener('change', () => {
-  if (fileInput.files?.length) addFiles(fileInput.files);
+  if (fileInput.files?.length) setFile(fileInput.files);
   fileInput.value = '';
 });
 
 clearBtn.addEventListener('click', () => {
-  selectedFiles = [];
+  selectedFile = null;
   resultsBody.innerHTML = '';
   summaryEl.hidden = true;
   progressSection.hidden = true;
@@ -144,32 +136,35 @@ function renderRow(row: BenchmarkRow) {
 function renderSummary(summaries: BenchmarkSummary[]) {
   summaryEl.hidden = false;
   summaryEl.innerHTML = `
-    <h3>Summary</h3>
-    ${summaries
-      .map(
-        (s) => `
-      <dl>
-        <dt>${escapeHtml(s.implName)}</dt>
-        <dd></dd>
-        <dt>Total processed</dt>
-        <dd>${formatBytes(s.totalBytes)}</dd>
-        <dt>Total time</dt>
-        <dd>${formatMs(s.totalMs)}</dd>
-        <dt>Average throughput</dt>
-        <dd>${formatMbps(s.avgMbps)}</dd>
-      </dl>
-    `,
-      )
-      .join('')}
+    <div class="summary-columns">
+      ${summaries
+        .map(
+          (s) => `
+        <div class="summary-column">
+          <h3 class="summary-impl">${escapeHtml(s.implName)}</h3>
+          <dl>
+            <dt>Total processed</dt>
+            <dd>${formatBytes(s.totalBytes)}</dd>
+            <dt>Total time</dt>
+            <dd>${formatMs(s.totalMs)}</dd>
+            <dt>Average throughput</dt>
+            <dd>${formatMbps(s.avgMbps)}</dd>
+          </dl>
+        </div>
+      `,
+        )
+        .join('')}
+    </div>
   `;
 }
 
 runBtn.addEventListener('click', async () => {
-  if (selectedFiles.length === 0 || running) return;
+  if (!selectedFile || running) return;
 
   running = true;
   runBtn.disabled = true;
   clearBtn.disabled = true;
+  syncInput.disabled = true;
   resultsBody.innerHTML = '';
   summaryEl.hidden = true;
   progressSection.hidden = false;
@@ -177,11 +172,13 @@ runBtn.addEventListener('click', async () => {
   progressElements.clear();
 
   const iterations = Math.max(1, Math.min(10, parseInt(iterationsInput.value, 10) || 1));
+  const sync = syncInput.checked;
 
   try {
     const {rows, summary} = await runBenchmark(
-      selectedFiles,
+      selectedFile,
       iterations,
+      {sync},
       (update) => {
         const el = ensureProgressBar(update);
         const pct = update.total > 0 ? (update.bytes / update.total) * 100 : 0;

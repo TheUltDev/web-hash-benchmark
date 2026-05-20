@@ -19,6 +19,6 @@
     "allowJs": true,
     "skipLibCheck": true
   },
-  "include": ["src", "sha256"],
+  "include": ["src", "sha256", "vite-env.d.ts"],
   "exclude": ["node_modules"]
 }

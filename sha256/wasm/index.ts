@@ -1,5 +1,4 @@
-// @ts-ignore
-import HashWorker from './index.worker?worker&inline';
+import HashWorker from './index.worker?worker';
 import type {FileSystemIn} from '../types';
 
 const _workers = new Map<number, Worker>();
