@@ -8,9 +8,9 @@ self.onmessage = async (e: MessageEvent<HashWorkerIn>) => {
   const {input, chunkSize = DEFAULT_CHUNK_SIZE} = e.data;
   const [file, total] = await getFileAccess(input, true);
   try {
-    const hash = await hashFile(file, total, chunkSize, (bytes) =>
+    const result = await hashFile(file, total, chunkSize, (bytes) =>
       self.postMessage({type: 'hash::progress', payload: {bytes, total}}));
-    self.postMessage({type: 'hash::complete', payload: hash});
+    self.postMessage({type: 'hash::complete', payload: result});
   } catch (error) {
     self.postMessage({type: 'hash::failure', payload: error});
   }
@@ -23,6 +23,7 @@ async function hashFile(
   progress: (bytes: number) => void,
 ) {
   const hash = new Sha256();
+  const start = performance.now();
   let bytes = 0;
   if (file instanceof File) {
     // Streaming path: chunk size is dictated by the underlying ReadableStream
@@ -58,5 +59,5 @@ async function hashFile(
   }
   const digest = hash.finish().result;
   if (!digest) throw new Error('Unable to hash file');
-  return bytesToHex(digest);
+  return {hash: bytesToHex(digest), elapsedMs: performance.now() - start};
 }

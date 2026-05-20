@@ -9,9 +9,9 @@ self.onmessage = async (e: MessageEvent<HashWorkerIn>) => {
   const [file, total] = await getFileAccess(input, true);
 
   try {
-    const hash = await hashFile(file, total, chunkSize, (bytes) =>
+    const result = await hashFile(file, total, chunkSize, (bytes) =>
       self.postMessage({type: 'hash::progress', payload: {bytes, total}}));
-    self.postMessage({type: 'hash::complete', payload: hash});
+    self.postMessage({type: 'hash::complete', payload: result});
   } catch (error) {
     self.postMessage({type: 'hash::failure', payload: error});
   }
@@ -25,6 +25,7 @@ async function hashFile(
 ) {
   const hasher = await createSHA256();
   hasher.init();
+  const start = performance.now();
   let bytes = 0;
 
   if (file instanceof File) {
@@ -60,5 +61,6 @@ async function hashFile(
     file.close();
   }
 
-  return hasher.digest('hex') as string;
+  const hash = hasher.digest('hex') as string;
+  return {hash, elapsedMs: performance.now() - start};
 }

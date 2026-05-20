@@ -1,5 +1,5 @@
 import HashWorker from './index.worker?worker';
-import type {FileSystemIn, HashWorkerIn} from '../types';
+import type {FileSystemIn, HashResult, HashWorkerIn} from '../types';
 
 const _workers = new Map<number, Worker>();
 
@@ -8,12 +8,12 @@ async function start(
   progress?: (bytes: number, total: number) => void,
   jobId?: number,
   chunkSize?: number,
-) {
+): Promise<HashResult> {
   const worker: Worker = new HashWorker();
   const message: HashWorkerIn = {input, chunkSize};
   worker.postMessage(message);
   jobId && _workers.set(jobId, worker);
-  return new Promise<string>((resolve, reject) => {
+  return new Promise<HashResult>((resolve, reject) => {
     worker.onmessage = (e) => {
       switch (e.data.type) {
         case 'hash::progress': {

@@ -6,5 +6,10 @@ export interface HashWorkerIn {
   chunkSize?: number;
 }
 
+export interface HashResult {
+  hash: string;
+  elapsedMs: number;
+}
+
 // Default chunk size for OPFS sync reads (1 MiB).
 export const DEFAULT_CHUNK_SIZE = 1024 * 1024;

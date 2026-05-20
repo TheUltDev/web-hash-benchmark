@@ -2,7 +2,7 @@ import asmjs from '../sha256/asmjs/index';
 import wasm from '../sha256/wasm/index';
 import {removeOpfsPath, writeFileToOpfs} from '../sha256/common';
 import {DEFAULT_CHUNK_SIZE} from '../sha256/types';
-import type {FileSystemIn} from '../sha256/types';
+import type {FileSystemIn, HashResult} from '../sha256/types';
 
 export interface HashImpl {
   name: string;
@@ -11,13 +11,13 @@ export interface HashImpl {
     progress?: (bytes: number, total: number) => void,
     jobId?: number,
     chunkSize?: number,
-  ) => Promise<string>;
+  ) => Promise<HashResult>;
   cancel: (jobId: number) => void;
 }
 
 export const implementations: HashImpl[] = [
-  {name: 'asmjs', ...asmjs},
   {name: 'hash-wasm', ...wasm},
+  {name: 'asmjs', ...asmjs},
 ];
 
 // chunkSize === 0 indicates the streaming path (browser-chosen chunks).
@@ -81,21 +81,26 @@ export async function runBenchmark(
   }
 
   try {
+    // Load workers/WASM/JIT for every implementation before any timed run so
+    // iteration order does not affect results.
+    const warmupChunk = chunkSizes[0] === STREAM_CHUNK ? undefined : chunkSizes[0];
+    for (const impl of implementations) {
+      await impl.start(input, undefined, undefined, warmupChunk);
+    }
+
     for (let iter = 1; iter <= iterations; iter++) {
       for (const chunkSize of chunkSizes) {
         for (const impl of implementations) {
           const jobId = nextJobId++;
           const label = `${file.name} · ${impl.name} · ${formatChunkSize(chunkSize)} · #${iter}`;
-          const start = performance.now();
 
-          const hash = await impl.start(
+          const {hash, elapsedMs} = await impl.start(
             input,
             (bytes, total) => onProgress?.({jobId: String(jobId), label, bytes, total}),
             jobId,
             chunkSize === STREAM_CHUNK ? undefined : chunkSize,
           );
 
-          const elapsedMs = performance.now() - start;
           const throughputMbps = file.size / (elapsedMs / 1000) / (1024 * 1024);
 
           rows.push({
