@@ -1,5 +1,5 @@
 import HashWorker from './index.worker?worker';
-import type {FileSystemIn} from '../types';
+import type {FileSystemIn, HashWorkerIn} from '../types';
 
 const _workers = new Map<number, Worker>();
 
@@ -7,9 +7,11 @@ async function start(
   input: FileSystemIn,
   progress?: (bytes: number, total: number) => void,
   jobId?: number,
+  chunkSize?: number,
 ) {
   const worker: Worker = new HashWorker();
-  worker.postMessage(input);
+  const message: HashWorkerIn = {input, chunkSize};
+  worker.postMessage(message);
   jobId && _workers.set(jobId, worker);
 
   return new Promise<string>((resolve, reject) => {

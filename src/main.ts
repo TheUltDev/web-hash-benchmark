@@ -1,9 +1,11 @@
 import {
   runBenchmark,
   formatBytes,
+  formatChunkSize,
   formatMs,
   formatMbps,
   truncateHash,
+  STREAM_CHUNK,
   type ProgressUpdate,
   type BenchmarkRow,
   type BenchmarkSummary,
@@ -15,14 +17,34 @@ const fileList = document.getElementById('file-list')!;
 const runBtn = document.getElementById('run-btn') as HTMLButtonElement;
 const clearBtn = document.getElementById('clear-btn') as HTMLButtonElement;
 const iterationsInput = document.getElementById('iterations') as HTMLInputElement;
+const chunkSizesInput = document.getElementById('chunk-sizes') as HTMLInputElement;
 const syncInput = document.getElementById('sync-mode') as HTMLInputElement;
 const progressSection = document.getElementById('progress-section')!;
 const progressBars = document.getElementById('progress-bars')!;
 const resultsBody = document.getElementById('results-body')!;
 const summaryEl = document.getElementById('summary')!;
 
+function parseChunkSizes(raw: string): number[] {
+  const parts = raw
+    .split(/[,\s]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const sizes: number[] = [];
+  for (const part of parts) {
+    const kb = Number.parseInt(part, 10);
+    if (Number.isFinite(kb) && kb > 0) sizes.push(kb * 1024);
+  }
+  return sizes;
+}
+
 let selectedFile: File | null = null;
 let running = false;
+
+function updateChunkSizesEnabled() {
+  // Chunk size only affects the OPFS sync path; in stream mode the browser
+  // controls chunking, so the input is disabled to make that explicit.
+  chunkSizesInput.disabled = running || !syncInput.checked;
+}
 
 function updateFileList() {
   if (!selectedFile) {
@@ -30,6 +52,7 @@ function updateFileList() {
     runBtn.disabled = true;
     clearBtn.disabled = true;
     syncInput.disabled = false;
+    updateChunkSizesEnabled();
     return;
   }
 
@@ -37,6 +60,7 @@ function updateFileList() {
   runBtn.disabled = running;
   clearBtn.disabled = running;
   syncInput.disabled = running;
+  updateChunkSizesEnabled();
 }
 
 function setFile(files: FileList | File[]) {
@@ -73,6 +97,8 @@ fileInput.addEventListener('change', () => {
   if (fileInput.files?.length) setFile(fileInput.files);
   fileInput.value = '';
 });
+
+syncInput.addEventListener('change', updateChunkSizesEnabled);
 
 clearBtn.addEventListener('click', () => {
   selectedFile = null;
@@ -124,6 +150,7 @@ function renderRow(row: BenchmarkRow) {
     <td>${escapeHtml(row.fileName)}</td>
     <td>${formatBytes(row.fileSize)}</td>
     <td>${escapeHtml(row.implName)}</td>
+    <td>${formatChunkSize(row.chunkSize)}</td>
     <td>${row.iteration}</td>
     <td>${formatMs(row.elapsedMs)}</td>
     <td>${formatMbps(row.throughputMbps)}</td>
@@ -139,9 +166,13 @@ function renderSummary(summaries: BenchmarkSummary[]) {
     <div class="summary-columns">
       ${summaries
         .map(
-          (s) => `
+          (s) => {
+            const chunkBadge = s.chunkSize === STREAM_CHUNK
+              ? ''
+              : `<span class="summary-chunk">${formatChunkSize(s.chunkSize)} chunk size</span>`;
+            return `
         <div class="summary-column">
-          <h3 class="summary-impl">${escapeHtml(s.implName)}</h3>
+          <h3 class="summary-impl">${escapeHtml(s.implName)}${chunkBadge ? ` ${chunkBadge}` : ''}</h3>
           <dl>
             <dt>Total processed</dt>
             <dd>${formatBytes(s.totalBytes)}</dd>
@@ -151,7 +182,8 @@ function renderSummary(summaries: BenchmarkSummary[]) {
             <dd>${formatMbps(s.avgMbps)}</dd>
           </dl>
         </div>
-      `,
+      `;
+          },
         )
         .join('')}
     </div>
@@ -173,12 +205,13 @@ runBtn.addEventListener('click', async () => {
 
   const iterations = Math.max(1, Math.min(10, parseInt(iterationsInput.value, 10) || 1));
   const sync = syncInput.checked;
+  const chunkSizes = parseChunkSizes(chunkSizesInput.value);
 
   try {
     const {rows, summary} = await runBenchmark(
       selectedFile,
       iterations,
-      {sync},
+      {sync, chunkSizes},
       (update) => {
         const el = ensureProgressBar(update);
         const pct = update.total > 0 ? (update.bytes / update.total) * 100 : 0;
@@ -191,7 +224,7 @@ runBtn.addEventListener('click', async () => {
     renderSummary(summary);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    resultsBody.innerHTML = `<tr><td colspan="8" style="color:var(--error)">Error: ${escapeHtml(msg)}</td></tr>`;
+    resultsBody.innerHTML = `<tr><td colspan="9" style="color:var(--error)">Error: ${escapeHtml(msg)}</td></tr>`;
   } finally {
     running = false;
     progressSection.hidden = true;

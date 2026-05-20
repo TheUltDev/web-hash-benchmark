@@ -106,13 +106,35 @@ main {
   font-size: 0.9rem;
 }
 
-.actions input[type='number'] {
-  width: 4rem;
+.actions input[type='number'],
+.actions input[type='text'] {
   padding: 0.4rem 0.5rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text);
+  font: inherit;
+  transition: opacity 0.15s;
+}
+
+.actions input[type='number']:disabled,
+.actions input[type='text']:disabled,
+.actions input[type='checkbox']:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.actions label:has(input:disabled) {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.actions input[type='number'] {
+  width: 4rem;
+}
+
+.chunk-sizes-label input[type='text'] {
+  width: 14rem;
 }
 
 button {
@@ -257,6 +279,19 @@ tr.mismatch td {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--text);
+}
+
+.summary-chunk {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 .summary dl {

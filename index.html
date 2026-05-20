@@ -26,6 +26,15 @@
             Iterations
             <input id="iterations" type="number" min="1" max="10" value="1" />
           </label>
+          <label class="chunk-sizes-label">
+            Chunk sizes (KB)
+            <input
+              id="chunk-sizes"
+              type="text"
+              value="1024"
+              placeholder="e.g. 64, 128, 256, 1024"
+            />
+          </label>
           <label>
             <input id="sync-mode" type="checkbox" />
             Use OPFS sync access
@@ -48,6 +57,7 @@
               <th>File</th>
               <th>Size</th>
               <th>Implementation</th>
+              <th>Chunk</th>
               <th>Iteration</th>
               <th>Time</th>
               <th>Throughput</th>
