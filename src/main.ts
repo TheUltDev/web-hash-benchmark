@@ -6,10 +6,25 @@ import {
   formatMbps,
   truncateHash,
   STREAM_CHUNK,
+  wasmSimdSupported,
   type ProgressUpdate,
   type BenchmarkRow,
   type BenchmarkSummary,
 } from './benchmark';
+
+const simdBadge = document.getElementById('simd-badge')!;
+
+function renderSimdBadge() {
+  simdBadge.textContent = wasmSimdSupported
+    ? 'WASM SIMD supported'
+    : 'WASM SIMD not supported';
+  simdBadge.className = wasmSimdSupported
+    ? 'simd-badge simd-badge--yes'
+    : 'simd-badge simd-badge--no';
+  simdBadge.title = wasmSimdSupported
+    ? 'This browser can run WebAssembly SIMD; hash-wasm (simd) is included in the benchmark.'
+    : 'WebAssembly SIMD is unavailable; hash-wasm (simd) is omitted from the benchmark.';
+}
 
 const dropZone = document.getElementById('drop-zone')!;
 const fileInput = document.getElementById('file-input') as HTMLInputElement;
@@ -232,4 +247,5 @@ runBtn.addEventListener('click', async () => {
   }
 });
 
+renderSimdBadge();
 updateFileList();

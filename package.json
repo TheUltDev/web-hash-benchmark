@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ult/hash-wasm": "file:../hash-wasm",
     "hash-wasm": "^4.12.0"
   },
   "devDependencies": {

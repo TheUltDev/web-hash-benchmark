@@ -1,8 +1,12 @@
+import {isWasmSimdSupported} from '@ult/hash-wasm';
 import asmjs from '../sha256/asmjs/index';
 import wasm from '../sha256/wasm/index';
+import wasmSimd from '../sha256/wasm-simd/index';
 import {removeOpfsPath, writeFileToOpfs} from '../sha256/common';
 import {DEFAULT_CHUNK_SIZE} from '../sha256/types';
 import type {FileSystemIn, HashResult} from '../sha256/types';
+
+export const wasmSimdSupported = isWasmSimdSupported();
 
 export interface HashSession {
   warmup: () => Promise<void>;
@@ -21,6 +25,7 @@ export interface HashImpl {
 
 export const implementations: HashImpl[] = [
   {name: 'hash-wasm', ...wasm},
+  ...(wasmSimdSupported ? [{name: 'hash-wasm (simd)', ...wasmSimd}] : []),
   {name: 'asmjs', ...asmjs},
 ];
 

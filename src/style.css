@@ -30,6 +30,14 @@ header {
   border-bottom: 1px solid var(--border);
 }
 
+.header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 header h1 {
   margin: 0 0 0.25rem;
   font-size: 1.75rem;
@@ -39,6 +47,30 @@ header h1 {
 .subtitle {
   margin: 0;
   color: var(--muted);
+}
+
+.simd-badge {
+  flex-shrink: 0;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.simd-badge--yes {
+  border-color: rgba(76, 175, 130, 0.45);
+  background: rgba(76, 175, 130, 0.12);
+  color: var(--success);
+}
+
+.simd-badge--no {
+  border-color: rgba(224, 92, 92, 0.35);
+  background: rgba(224, 92, 92, 0.08);
+  color: #e88a8a;
 }
 
 main {
