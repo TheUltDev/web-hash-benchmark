@@ -1,8 +1,8 @@
 /// <reference lib="webworker"/>
 
 import {Sha256} from './lib/index';
-import {bytesToHex, getFileAccess} from '../../common/fs';
-import {DEFAULT_CHUNK_SIZE, type HashWorkerIn} from '../../common/types';
+import {bytesToHex, getFileAccess} from '../../../lib/fs';
+import {DEFAULT_CHUNK_SIZE, type HashWorkerIn} from '../../../lib/types';
 
 // Reused across messages so V8 has every opportunity to tier the hot loop up
 // to its optimizing compiler before any timed run.

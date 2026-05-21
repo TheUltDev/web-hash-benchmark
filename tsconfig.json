@@ -19,6 +19,6 @@
     "allowJs": true,
     "skipLibCheck": true
   },
-  "include": ["src", "hash", "vite-env.d.ts"],
+  "include": ["src", "lib", "hash", "vite-env.d.ts"],
   "exclude": ["node_modules"]
 }

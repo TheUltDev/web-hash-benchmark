@@ -5,12 +5,12 @@ import sha256WasmSimd from '../hash/sha256/wasm-simd/index';
 import blake3Wasm from '../hash/blake3/wasm/index';
 import blake3WasmSimd from '../hash/blake3/wasm-simd/index';
 import blake2Wasm from '../hash/blake2/wasm/index';
-import {removeOpfsPath, writeFileToOpfs} from '../hash/common/fs';
-import {DEFAULT_CHUNK_SIZE, type AlgoImpl, type FileSystemIn} from '../hash/common/types';
+import {removeOpfsPath, writeFileToOpfs} from '../lib/fs';
+import {DEFAULT_CHUNK_SIZE, type AlgoImpl, type FileSystemIn} from '../lib/types';
 
 export const wasmSimdSupported = isWasmSimdSupported();
 
-export type {HashSession} from '../hash/common/types';
+export type {HashSession} from '../lib/types';
 
 // chunkSize === 0 indicates the streaming path (browser-chosen chunks).
 export const STREAM_CHUNK = 0;
