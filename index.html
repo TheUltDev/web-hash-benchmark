@@ -3,15 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SHA-256 Browser Benchmark</title>
+    <title>Hash Browser Benchmark</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <header>
       <div class="header-row">
         <div>
-          <h1>SHA-256 Browser Benchmark</h1>
-          <p class="subtitle">Compare incremental hashing solutions for browsers</p>
+          <h1>Hash Browser Benchmark</h1>
+          <p class="subtitle">Compare incremental hashing algorithms and implementations for browsers</p>
         </div>
         <span id="simd-badge" class="simd-badge" aria-live="polite"></span>
       </div>
@@ -54,26 +54,49 @@
         <div id="progress-bars"></div>
       </section>
 
-      <section class="results-section">
-        <h2>Results</h2>
-        <table id="results-table">
-          <thead>
-            <tr>
-              <th>File</th>
-              <th>Size</th>
-              <th>Implementation</th>
-              <th>Chunk</th>
-              <th>Iteration</th>
-              <th>Time</th>
-              <th>Throughput</th>
-              <th>Hash</th>
-              <th>Match</th>
-            </tr>
-          </thead>
-          <tbody id="results-body"></tbody>
-        </table>
-        <div id="summary" class="summary" hidden></div>
-      </section>
+      <div class="benchmark-output" id="benchmark-output">
+        <section class="results-section">
+          <h2>Results</h2>
+          <div class="results-scroll">
+            <table id="results-table">
+              <thead>
+                <tr>
+                  <th>File</th>
+                  <th>Size</th>
+                  <th>Algorithm</th>
+                  <th>Implementation</th>
+                  <th>Chunk</th>
+                  <th>Iteration</th>
+                  <th>Time</th>
+                  <th>Throughput</th>
+                  <th>Hash</th>
+                  <th>Match</th>
+                </tr>
+              </thead>
+              <tbody id="results-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="summary-section" id="summary-section" hidden>
+          <h2>Summary</h2>
+          <div class="table-scroll">
+            <table id="summary-table">
+              <thead>
+                <tr>
+                  <th>Algorithm</th>
+                  <th>Implementation</th>
+                  <th>Chunk</th>
+                  <th>Total processed</th>
+                  <th>Total time</th>
+                  <th>Avg throughput</th>
+                </tr>
+              </thead>
+              <tbody id="summary-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
     </main>
 
     <script type="module" src="/src/main.ts"></script>

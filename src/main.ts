@@ -5,7 +5,6 @@ import {
   formatMs,
   formatMbps,
   truncateHash,
-  STREAM_CHUNK,
   wasmSimdSupported,
   type ProgressUpdate,
   type BenchmarkRow,
@@ -22,8 +21,8 @@ function renderSimdBadge() {
     ? 'simd-badge simd-badge--yes'
     : 'simd-badge simd-badge--no';
   simdBadge.title = wasmSimdSupported
-    ? 'This browser can run WebAssembly SIMD; hash-wasm (simd) is included in the benchmark.'
-    : 'WebAssembly SIMD is unavailable; hash-wasm (simd) is omitted from the benchmark.';
+    ? 'This browser can run WebAssembly SIMD; hash-wasm (simd) variants are included in the benchmark.'
+    : 'WebAssembly SIMD is unavailable; hash-wasm (simd) variants are omitted from the benchmark.';
 }
 
 const dropZone = document.getElementById('drop-zone')!;
@@ -37,7 +36,8 @@ const syncInput = document.getElementById('sync-mode') as HTMLInputElement;
 const progressSection = document.getElementById('progress-section')!;
 const progressBars = document.getElementById('progress-bars')!;
 const resultsBody = document.getElementById('results-body')!;
-const summaryEl = document.getElementById('summary')!;
+const summarySection = document.getElementById('summary-section')!;
+const summaryBody = document.getElementById('summary-body')!;
 
 function parseChunkSizes(raw: string): number[] {
   const parts = raw
@@ -118,7 +118,8 @@ syncInput.addEventListener('change', updateChunkSizesEnabled);
 clearBtn.addEventListener('click', () => {
   selectedFile = null;
   resultsBody.innerHTML = '';
-  summaryEl.hidden = true;
+  summarySection.hidden = true;
+  summaryBody.innerHTML = '';
   progressSection.hidden = true;
   progressBars.innerHTML = '';
   updateFileList();
@@ -164,6 +165,7 @@ function renderRow(row: BenchmarkRow) {
   tr.innerHTML = `
     <td>${escapeHtml(row.fileName)}</td>
     <td>${formatBytes(row.fileSize)}</td>
+    <td>${escapeHtml(row.algoName)}</td>
     <td>${escapeHtml(row.implName)}</td>
     <td>${formatChunkSize(row.chunkSize)}</td>
     <td>${row.iteration}</td>
@@ -176,33 +178,21 @@ function renderRow(row: BenchmarkRow) {
 }
 
 function renderSummary(summaries: BenchmarkSummary[]) {
-  summaryEl.hidden = false;
-  summaryEl.innerHTML = `
-    <div class="summary-columns">
-      ${summaries
-        .map(
-          (s) => {
-            const chunkBadge = s.chunkSize === STREAM_CHUNK
-              ? ''
-              : `<span class="summary-chunk">${formatChunkSize(s.chunkSize)} chunk size</span>`;
-            return `
-        <div class="summary-column">
-          <h3 class="summary-impl">${escapeHtml(s.implName)}${chunkBadge ? ` ${chunkBadge}` : ''}</h3>
-          <dl>
-            <dt>Total processed</dt>
-            <dd>${formatBytes(s.totalBytes)}</dd>
-            <dt>Total time</dt>
-            <dd>${formatMs(s.totalMs)}</dd>
-            <dt>Average throughput</dt>
-            <dd>${formatMbps(s.avgMbps)}</dd>
-          </dl>
-        </div>
-      `;
-          },
-        )
-        .join('')}
-    </div>
-  `;
+  summaryBody.innerHTML = summaries
+    .map(
+      (s, index) => `
+    <tr${index === 0 ? ' class="summary-winner"' : ''}>
+      <td>${escapeHtml(s.algoName)}</td>
+      <td>${escapeHtml(s.implName)}</td>
+      <td>${formatChunkSize(s.chunkSize)}</td>
+      <td>${formatBytes(s.totalBytes)}</td>
+      <td>${formatMs(s.totalMs)}</td>
+      <td>${formatMbps(s.avgMbps)}</td>
+    </tr>
+  `,
+    )
+    .join('');
+  summarySection.hidden = summaries.length === 0;
 }
 
 runBtn.addEventListener('click', async () => {
@@ -213,7 +203,8 @@ runBtn.addEventListener('click', async () => {
   clearBtn.disabled = true;
   syncInput.disabled = true;
   resultsBody.innerHTML = '';
-  summaryEl.hidden = true;
+  summarySection.hidden = true;
+  summaryBody.innerHTML = '';
   progressSection.hidden = false;
   progressBars.innerHTML = '';
   progressElements.clear();
@@ -239,7 +230,7 @@ runBtn.addEventListener('click', async () => {
     renderSummary(summary);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    resultsBody.innerHTML = `<tr><td colspan="9" style="color:var(--error)">Error: ${escapeHtml(msg)}</td></tr>`;
+    resultsBody.innerHTML = `<tr><td colspan="10" style="color:var(--error)">Error: ${escapeHtml(msg)}</td></tr>`;
   } finally {
     running = false;
     progressSection.hidden = true;

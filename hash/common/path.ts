@@ -182,6 +182,7 @@ function assertValidName(name: string): void {
     throw new TypeError(`name cannot be "."`);
   if (name === '..')
     throw new TypeError(`name cannot be ".."`);
+
   if (name.includes('/') || name.includes('\\')) {
     throw new TypeError(
       `name cannot contain a slash or backslash: "${name}"`,

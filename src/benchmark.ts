@@ -1,33 +1,16 @@
 import {isWasmSimdSupported} from '@ult/hash-wasm';
-import asmjs from '../sha256/asmjs/index';
-import wasm from '../sha256/wasm/index';
-import wasmSimd from '../sha256/wasm-simd/index';
-import {removeOpfsPath, writeFileToOpfs} from '../sha256/common';
-import {DEFAULT_CHUNK_SIZE} from '../sha256/types';
-import type {FileSystemIn, HashResult} from '../sha256/types';
+import sha256Asmjs from '../hash/sha256/asmjs/index';
+import sha256Wasm from '../hash/sha256/wasm/index';
+import sha256WasmSimd from '../hash/sha256/wasm-simd/index';
+import blake3Wasm from '../hash/blake3/wasm/index';
+import blake3WasmSimd from '../hash/blake3/wasm-simd/index';
+import blake2Wasm from '../hash/blake2/wasm/index';
+import {removeOpfsPath, writeFileToOpfs} from '../hash/common/fs';
+import {DEFAULT_CHUNK_SIZE, type AlgoImpl, type FileSystemIn} from '../hash/common/types';
 
 export const wasmSimdSupported = isWasmSimdSupported();
 
-export interface HashSession {
-  warmup: () => Promise<void>;
-  hash: (
-    input: FileSystemIn,
-    progress?: (bytes: number, total: number) => void,
-    chunkSize?: number,
-  ) => Promise<HashResult>;
-  dispose: () => void;
-}
-
-export interface HashImpl {
-  name: string;
-  create: () => HashSession;
-}
-
-export const implementations: HashImpl[] = [
-  {name: 'hash-wasm', ...wasm},
-  ...(wasmSimdSupported ? [{name: 'hash-wasm (simd)', ...wasmSimd}] : []),
-  {name: 'asmjs', ...asmjs},
-];
+export type {HashSession} from '../hash/common/types';
 
 // chunkSize === 0 indicates the streaming path (browser-chosen chunks).
 export const STREAM_CHUNK = 0;
@@ -35,6 +18,7 @@ export const STREAM_CHUNK = 0;
 export interface BenchmarkRow {
   fileName: string;
   fileSize: number;
+  algoName: string;
   implName: string;
   chunkSize: number;
   iteration: number;
@@ -45,6 +29,7 @@ export interface BenchmarkRow {
 }
 
 export interface BenchmarkSummary {
+  algoName: string;
   implName: string;
   chunkSize: number;
   totalBytes: number;
@@ -63,6 +48,19 @@ export interface RunOptions {
   sync: boolean;
   chunkSizes?: number[];
 }
+
+export const implementations: AlgoImpl[] = [
+  {algoName: 'SHA-256', name: 'hash-wasm', ...sha256Wasm},
+  ...(wasmSimdSupported
+    ? [{algoName: 'SHA-256', name: 'hash-wasm (simd)', ...sha256WasmSimd}]
+    : []),
+  {algoName: 'SHA-256', name: 'asmjs', ...sha256Asmjs},
+  {algoName: 'BLAKE3', name: 'hash-wasm', ...blake3Wasm},
+  ...(wasmSimdSupported
+    ? [{algoName: 'BLAKE3', name: 'hash-wasm (simd)', ...blake3WasmSimd}]
+    : []),
+  {algoName: 'BLAKE2b', name: 'hash-wasm', ...blake2Wasm},
+];
 
 let nextJobId = 0;
 
@@ -102,7 +100,7 @@ export async function runBenchmark(
       for (const chunkSize of chunkSizes) {
         for (const {impl, session} of sessions) {
           const jobId = nextJobId++;
-          const label = `${file.name} · ${impl.name} · ${formatChunkSize(chunkSize)} · #${iter}`;
+          const label = `${file.name} · ${impl.algoName} · ${impl.name} · ${formatChunkSize(chunkSize)} · #${iter}`;
 
           const {hash, elapsedMs} = await session.hash(
             input,
@@ -115,6 +113,7 @@ export async function runBenchmark(
           rows.push({
             fileName: file.name,
             fileSize: file.size,
+            algoName: impl.algoName,
             implName: impl.name,
             chunkSize,
             iteration: iter,
@@ -131,16 +130,17 @@ export async function runBenchmark(
     if (opfsPath) await removeOpfsPath(opfsPath);
   }
 
-  // All impls + chunk sizes for the same iteration must produce the same digest;
-  // use the first row of each iteration as the reference.
-  const referenceByIter = new Map<number, string>();
+  // All impls + chunk sizes for the same algorithm and iteration must produce
+  // the same digest; use the first row of each group as the reference.
+  const referenceByAlgoIter = new Map<string, string>();
   for (const row of rows) {
-    if (!referenceByIter.has(row.iteration)) {
-      referenceByIter.set(row.iteration, row.hash);
+    const key = `${row.algoName}:${row.iteration}`;
+    if (!referenceByAlgoIter.has(key)) {
+      referenceByAlgoIter.set(key, row.hash);
     }
   }
   for (const row of rows) {
-    const reference = referenceByIter.get(row.iteration);
+    const reference = referenceByAlgoIter.get(`${row.algoName}:${row.iteration}`);
     row.match = reference !== undefined && row.hash === reference;
   }
 
@@ -148,15 +148,27 @@ export async function runBenchmark(
   for (const impl of implementations) {
     for (const chunkSize of chunkSizes) {
       const implRows = rows.filter(
-        (r) => r.implName === impl.name && r.chunkSize === chunkSize,
+        (r) =>
+          r.algoName === impl.algoName &&
+          r.implName === impl.name &&
+          r.chunkSize === chunkSize,
       );
       if (implRows.length === 0) continue;
       const totalBytes = implRows.reduce((sum, r) => sum + r.fileSize, 0);
       const totalMs = implRows.reduce((sum, r) => sum + r.elapsedMs, 0);
       const avgMbps = totalMs > 0 ? totalBytes / (totalMs / 1000) / (1024 * 1024) : 0;
-      summary.push({implName: impl.name, chunkSize, totalBytes, totalMs, avgMbps});
+      summary.push({
+        algoName: impl.algoName,
+        implName: impl.name,
+        chunkSize,
+        totalBytes,
+        totalMs,
+        avgMbps,
+      });
     }
   }
+
+  summary.sort((a, b) => b.avgMbps - a.avgMbps);
 
   return {rows, summary};
 }

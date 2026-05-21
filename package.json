@@ -1,5 +1,5 @@
 {
-  "name": "web-sha256-benchmark",
+  "name": "web-hash-benchmark",
   "private": true,
   "type": "module",
   "scripts": {
