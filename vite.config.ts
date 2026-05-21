@@ -1,7 +1,7 @@
 import {defineConfig} from 'vite';
 
 export default defineConfig({
-  base: '/web-sha256-benchmark/',
+  base: '/web-hash-benchmark/',
   root: '.',
   build: {
     target: 'esnext',

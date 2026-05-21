@@ -1,4 +1,4 @@
-# Hash Browser Benchmark
+# Web Hash Benchmark
 
 Browser benchmark for hashing large user-supplied files. Compares incremental hash algorithms and implementations side by side in dedicated Web Workers with shared streaming logic so timings stay comparable.
 
