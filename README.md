@@ -1,11 +1,21 @@
-# Web SHA-256 Benchmark
+# Hash Browser Benchmark
 
-Browser benchmark for hashing large user-supplied files. Compares two SHA-256 implementations head-to-head:
+Browser benchmark for hashing large user-supplied files. Compares incremental hash algorithms and implementations side by side in dedicated Web Workers with shared streaming logic so timings stay comparable.
 
-- **asmjs** — custom asm.js implementation in [`sha256/asmjs/`](sha256/asmjs/)
-- **hash-wasm** — WebAssembly implementation from [Daninet/hash-wasm](https://github.com/Daninet/hash-wasm) in [`sha256/wasm/`](sha256/wasm/)
+## Algorithms and implementations
 
-Both run in dedicated Web Workers with identical streaming logic so timings are comparable.
+| Algorithm | Implementation | Source |
+|-----------|----------------|--------|
+| SHA-256 | hash-wasm | [Daninet/hash-wasm](https://github.com/Daninet/hash-wasm) |
+| SHA-256 | hash-wasm (simd) | [@ult/hash-wasm](https://www.npmjs.com/package/@ult/hash-wasm) (when WASM SIMD is available) |
+| SHA-256 | asmjs | Custom asm.js in [`hash/sha256/asmjs/`](hash/sha256/asmjs/) |
+| BLAKE3 | hash-wasm | [Daninet/hash-wasm](https://github.com/Daninet/hash-wasm) |
+| BLAKE3 | hash-wasm (simd) | [@ult/hash-wasm](https://www.npmjs.com/package/@ult/hash-wasm) (when WASM SIMD is available) |
+| BLAKE2b | hash-wasm | [Daninet/hash-wasm](https://github.com/Daninet/hash-wasm) |
+
+The SIMD variants are omitted automatically when the browser does not support WebAssembly SIMD. The UI shows a badge indicating whether SIMD is available.
+
+Each implementation runs in its own long-lived worker. Workers are warmed up before timed runs so JIT and WASM compilation costs are not counted against the benchmark.
 
 ## Quick start
 
@@ -16,17 +26,21 @@ npm run dev
 
 Open the URL shown in the terminal (typically `http://localhost:5173`), drop a file, and click **Run benchmark**.
 
-Enable **Use OPFS sync access** to copy the file into the Origin Private File System once, then hash it via `FileSystemSyncAccessHandle` inside the workers (sync reads). Leave it off to hash the dropped `File` directly with async streaming.
+### OPFS sync access
+
+Enable **Use OPFS sync access** to copy the file into the Origin Private File System once, then hash it via `FileSystemSyncAccessHandle` inside the workers with synchronous reads. In this mode you can sweep over multiple chunk sizes (configured in kilobytes).
+
+Leave it off to hash the dropped `File` directly with async streaming. Chunk size is ignored in this mode because the browser controls how data is read from the stream.
 
 ## What it measures
 
-For each implementation the benchmark records:
+For each run the benchmark records:
 
 - Elapsed time (ms)
 - Throughput (MB/s)
-- SHA-256 hash (hex)
+- Hash digest (hex)
 
-Hashes from both implementations are compared per iteration; mismatches are highlighted. A summary shows total bytes processed and average throughput per implementation.
+Hashes from every implementation of the same algorithm and iteration are compared. Mismatches are highlighted in the results table. A summary ranks implementations by average throughput.
 
 ## Scripts
 
@@ -39,11 +53,24 @@ Hashes from both implementations are compared per iteration; mismatches are high
 ## Project layout
 
 ```
-sha256/
-  asmjs/     # Custom asm.js SHA-256 + worker
-  wasm/      # hash-wasm wrapper + worker
-  common.ts  # Shared file access helpers
+hash/
+  sha256/
+    asmjs/       # Custom asm.js SHA-256 + worker
+    wasm/        # hash-wasm wrapper + worker
+    wasm-simd/   # @ult/hash-wasm SIMD wrapper + worker
+  blake3/
+    wasm/
+    wasm-simd/
+  blake2/
+    wasm/
+lib/
+  fs.ts          # OPFS read/write helpers
+  session.ts     # Long-lived worker session wrapper
+  wasm-worker.ts # Shared WASM worker harness
+  types.ts       # Shared types and interfaces
 src/
-  main.ts       # UI (file drop, results table)
-  benchmark.ts  # Benchmark orchestrator
+  main.ts        # UI (file drop, controls, results table)
+  benchmark.ts   # Benchmark orchestrator
+  style.css
+index.html
 ```
