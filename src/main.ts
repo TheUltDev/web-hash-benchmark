@@ -54,6 +54,7 @@ function parseChunkSizes(raw: string): number[] {
 
 let selectedFile: File | null = null;
 let running = false;
+let hideDropZone = false;
 
 function updateChunkSizesEnabled() {
   // Chunk size only affects the OPFS sync path; in stream mode the browser
@@ -62,6 +63,8 @@ function updateChunkSizesEnabled() {
 }
 
 function updateFileList() {
+  dropZone.hidden = hideDropZone || running;
+
   if (!selectedFile) {
     fileList.innerHTML = '';
     runBtn.disabled = true;
@@ -116,6 +119,7 @@ fileInput.addEventListener('change', () => {
 syncInput.addEventListener('change', updateChunkSizesEnabled);
 
 clearBtn.addEventListener('click', () => {
+  hideDropZone = false;
   selectedFile = null;
   resultsBody.innerHTML = '';
   summarySection.hidden = true;
@@ -199,6 +203,8 @@ runBtn.addEventListener('click', async () => {
   if (!selectedFile || running) return;
 
   running = true;
+  hideDropZone = true;
+  updateFileList();
   runBtn.disabled = true;
   clearBtn.disabled = true;
   syncInput.disabled = true;
