@@ -6,6 +6,7 @@ import sha256WasmSimd from '../hash/sha256/wasm-simd/index';
 import blake3Wasm from '../hash/blake3/wasm/index';
 import blake3WasmSimd from '../hash/blake3/wasm-simd/index';
 import blake2Wasm from '../hash/blake2/wasm/index';
+import {canRunCryptoSubtle} from '../lib/crypto-subtle';
 import {removeOpfsPath, writeFileToOpfs} from '../lib/fs';
 import {DEFAULT_CHUNK_SIZE, type AlgoImpl, type FileSystemIn} from '../lib/types';
 
@@ -51,12 +52,12 @@ export interface RunOptions {
 }
 
 export const implementations: AlgoImpl[] = [
+  {algoName: 'SHA-256', name: 'crypto.subtle', ...sha256Subtle},
   {algoName: 'SHA-256', name: 'hash-wasm', ...sha256Wasm},
   ...(wasmSimdSupported
     ? [{algoName: 'SHA-256', name: 'hash-wasm (simd)', ...sha256WasmSimd}]
     : []),
   {algoName: 'SHA-256', name: 'asmjs', ...sha256Asmjs},
-  {algoName: 'SHA-256', name: 'crypto.subtle', ...sha256Subtle},
   {algoName: 'BLAKE3', name: 'hash-wasm', ...blake3Wasm},
   ...(wasmSimdSupported
     ? [{algoName: 'BLAKE3', name: 'hash-wasm (simd)', ...blake3WasmSimd}]
@@ -89,9 +90,13 @@ export async function runBenchmark(
     input = opfsPath;
   }
 
+  const activeImplementations = implementations.filter(
+    (impl) => impl.name !== 'crypto.subtle' || canRunCryptoSubtle(file.size),
+  );
+
   // One long-lived worker per impl so the WASM module is compiled and the
   // hot path is tiered up to optimized code once, not on every iteration.
-  const sessions = implementations.map((impl) => ({impl, session: impl.create()}));
+  const sessions = activeImplementations.map((impl) => ({impl, session: impl.create()}));
 
   try {
     // Run a cheap synthetic hash in every worker to push the engine through
@@ -104,26 +109,31 @@ export async function runBenchmark(
           const jobId = nextJobId++;
           const label = `${file.name} · ${impl.algoName} · ${impl.name} · ${formatChunkSize(chunkSize)} · #${iter}`;
 
-          const {hash, elapsedMs} = await session.hash(
-            input,
-            (bytes, total) => onProgress?.({jobId: String(jobId), label, bytes, total}),
-            chunkSize === STREAM_CHUNK ? undefined : chunkSize,
-          );
+          try {
+            const {hash, elapsedMs} = await session.hash(
+              input,
+              (bytes, total) => onProgress?.({jobId: String(jobId), label, bytes, total}),
+              chunkSize === STREAM_CHUNK ? undefined : chunkSize,
+            );
 
-          const throughputMbps = file.size / (elapsedMs / 1000) / (1024 * 1024);
+            const throughputMbps = file.size / (elapsedMs / 1000) / (1024 * 1024);
 
-          rows.push({
-            fileName: file.name,
-            fileSize: file.size,
-            algoName: impl.algoName,
-            implName: impl.name,
-            chunkSize,
-            iteration: iter,
-            elapsedMs,
-            throughputMbps,
-            hash,
-            match: null,
-          });
+            rows.push({
+              fileName: file.name,
+              fileSize: file.size,
+              algoName: impl.algoName,
+              implName: impl.name,
+              chunkSize,
+              iteration: iter,
+              elapsedMs,
+              throughputMbps,
+              hash,
+              match: null,
+            });
+          } catch (error) {
+            if (impl.name !== 'crypto.subtle') throw error;
+            console.warn('crypto.subtle skipped:', error);
+          }
         }
       }
     }

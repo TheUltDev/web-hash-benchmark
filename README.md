@@ -16,7 +16,7 @@ Browser benchmark for hashing large user-supplied files. Compares incremental ha
 
 The SIMD variants are omitted automatically when the browser does not support WebAssembly SIMD. The UI shows a badge indicating whether SIMD is available.
 
-The `crypto.subtle` row uses the typical one-shot pattern (`file.arrayBuffer()` then `crypto.subtle.digest`), not incremental streaming. BLAKE3 and BLAKE2b are not available via `crypto.subtle`.
+The `crypto.subtle` row uses the typical one-shot pattern (`file.arrayBuffer()` then `crypto.subtle.digest`), not incremental streaming. It is omitted when the file exceeds a memory-based size limit (2 GiB when browser memory cannot be detected, or higher when `performance.memory` / `navigator.deviceMemory` hints are available). BLAKE3 and BLAKE2b are not available via `crypto.subtle`.
 
 Each implementation runs in its own long-lived worker. Workers are warmed up before timed runs so JIT and WASM compilation costs are not counted against the benchmark.
 
