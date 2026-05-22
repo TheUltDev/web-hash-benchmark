@@ -9,11 +9,14 @@ Browser benchmark for hashing large user-supplied files. Compares incremental ha
 | SHA-256 | hash-wasm | [Daninet/hash-wasm](https://github.com/Daninet/hash-wasm) |
 | SHA-256 | hash-wasm (simd) | [@ult/hash-wasm](https://www.npmjs.com/package/@ult/hash-wasm) (when WASM SIMD is available) |
 | SHA-256 | asmjs | Custom asm.js in [`hash/sha256/asmjs/`](hash/sha256/asmjs/) |
+| SHA-256 | crypto.subtle | Browser Web Crypto API (`crypto.subtle.digest`) |
 | BLAKE3 | hash-wasm | [Daninet/hash-wasm](https://github.com/Daninet/hash-wasm) |
 | BLAKE3 | hash-wasm (simd) | [@ult/hash-wasm](https://www.npmjs.com/package/@ult/hash-wasm) (when WASM SIMD is available) |
 | BLAKE2b | hash-wasm | [Daninet/hash-wasm](https://github.com/Daninet/hash-wasm) |
 
 The SIMD variants are omitted automatically when the browser does not support WebAssembly SIMD. The UI shows a badge indicating whether SIMD is available.
+
+The `crypto.subtle` row uses the typical one-shot pattern (`file.arrayBuffer()` then `crypto.subtle.digest`), not incremental streaming. BLAKE3 and BLAKE2b are not available via `crypto.subtle`.
 
 Each implementation runs in its own long-lived worker. Workers are warmed up before timed runs so JIT and WASM compilation costs are not counted against the benchmark.
 
@@ -58,6 +61,7 @@ hash/
     asmjs/       # Custom asm.js SHA-256 + worker
     wasm/        # hash-wasm wrapper + worker
     wasm-simd/   # @ult/hash-wasm SIMD wrapper + worker
+    subtle/      # crypto.subtle.digest wrapper + worker
   blake3/
     wasm/
     wasm-simd/

@@ -1,5 +1,6 @@
 import {isWasmSimdSupported} from '@ult/hash-wasm';
 import sha256Asmjs from '../hash/sha256/asmjs/index';
+import sha256Subtle from '../hash/sha256/subtle/index';
 import sha256Wasm from '../hash/sha256/wasm/index';
 import sha256WasmSimd from '../hash/sha256/wasm-simd/index';
 import blake3Wasm from '../hash/blake3/wasm/index';
@@ -55,6 +56,7 @@ export const implementations: AlgoImpl[] = [
     ? [{algoName: 'SHA-256', name: 'hash-wasm (simd)', ...sha256WasmSimd}]
     : []),
   {algoName: 'SHA-256', name: 'asmjs', ...sha256Asmjs},
+  {algoName: 'SHA-256', name: 'crypto.subtle', ...sha256Subtle},
   {algoName: 'BLAKE3', name: 'hash-wasm', ...blake3Wasm},
   ...(wasmSimdSupported
     ? [{algoName: 'BLAKE3', name: 'hash-wasm (simd)', ...blake3WasmSimd}]
