@@ -3,26 +3,38 @@ import {
   formatBytes,
   formatChunkSize,
   formatMs,
-  formatMbps,
+  formatGbps,
   truncateHash,
   wasmSimdSupported,
+  wasmThreadsSupported,
   type ProgressUpdate,
   type BenchmarkRow,
   type BenchmarkSummary,
 } from './benchmark';
 
 const simdBadge = document.getElementById('simd-badge')!;
+const threadsBadge = document.getElementById('threads-badge')!;
 
-function renderSimdBadge() {
+function renderCapabilityBadges() {
   simdBadge.textContent = wasmSimdSupported
     ? 'WASM SIMD supported'
     : 'WASM SIMD not supported';
   simdBadge.className = wasmSimdSupported
-    ? 'simd-badge simd-badge--yes'
-    : 'simd-badge simd-badge--no';
+    ? 'capability-badge capability-badge--yes'
+    : 'capability-badge capability-badge--no';
   simdBadge.title = wasmSimdSupported
-    ? 'This browser can run WebAssembly SIMD; hash-wasm (simd) variants are included in the benchmark.'
-    : 'WebAssembly SIMD is unavailable; hash-wasm (simd) variants are omitted from the benchmark.';
+    ? 'This browser can run WebAssembly SIMD; hash-wasm (simd) and awasm-noble (simd) variants are included in the benchmark.'
+    : 'WebAssembly SIMD is unavailable; hash-wasm (simd) and awasm-noble (simd) variants are omitted from the benchmark.';
+
+  threadsBadge.textContent = wasmThreadsSupported
+    ? 'WASM threads supported'
+    : 'WASM threads not supported';
+  threadsBadge.className = wasmThreadsSupported
+    ? 'capability-badge capability-badge--yes'
+    : 'capability-badge capability-badge--no';
+  threadsBadge.title = wasmThreadsSupported
+    ? 'Cross-origin isolation is enabled; awasm-noble (threads) variants are included in the benchmark.'
+    : 'Cross-origin isolation is unavailable; awasm-noble (threads) variants are omitted. Serve with COOP and COEP headers (dev uses credentialless COEP) to enable them.';
 }
 
 const dropZone = document.getElementById('drop-zone')!;
@@ -174,7 +186,7 @@ function renderRow(row: BenchmarkRow) {
     <td>${formatChunkSize(row.chunkSize)}</td>
     <td>${row.iteration}</td>
     <td>${formatMs(row.elapsedMs)}</td>
-    <td>${formatMbps(row.throughputMbps)}</td>
+    <td>${formatGbps(row.throughputGbps)}</td>
     <td class="hash-cell" title="${escapeHtml(row.hash)}">${truncateHash(row.hash)}</td>
     <td class="${matchClass}">${matchText}</td>
   `;
@@ -191,7 +203,7 @@ function renderSummary(summaries: BenchmarkSummary[]) {
       <td>${formatChunkSize(s.chunkSize)}</td>
       <td>${formatBytes(s.totalBytes)}</td>
       <td>${formatMs(s.totalMs)}</td>
-      <td>${formatMbps(s.avgMbps)}</td>
+      <td>${formatGbps(s.avgGbps)}</td>
     </tr>
   `,
     )
@@ -244,5 +256,5 @@ runBtn.addEventListener('click', async () => {
   }
 });
 
-renderSimdBadge();
+renderCapabilityBadges();
 updateFileList();

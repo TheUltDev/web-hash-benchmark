@@ -6,11 +6,19 @@ import sha256WasmSimd from '../hash/sha256/wasm-simd/index';
 import blake3Wasm from '../hash/blake3/wasm/index';
 import blake3WasmSimd from '../hash/blake3/wasm-simd/index';
 import blake2Wasm from '../hash/blake2/wasm/index';
+import sha256AwasmNobleSimd from '../hash/sha256/awasm-noble-simd/index';
+import sha256AwasmNobleThreads from '../hash/sha256/awasm-noble-threads/index';
+import blake2AwasmNobleSimd from '../hash/blake2/awasm-noble-simd/index';
+import blake2AwasmNobleThreads from '../hash/blake2/awasm-noble-threads/index';
+import blake3AwasmNobleSimd from '../hash/blake3/awasm-noble-simd/index';
+import blake3AwasmNobleThreads from '../hash/blake3/awasm-noble-threads/index';
 import {canRunCryptoSubtle} from '../lib/crypto-subtle';
 import {removeOpfsPath, writeFileToOpfs} from '../lib/fs';
 import {DEFAULT_CHUNK_SIZE, type AlgoImpl, type FileSystemIn} from '../lib/types';
 
 export const wasmSimdSupported = isWasmSimdSupported();
+export const wasmThreadsSupported =
+  typeof crossOriginIsolated === 'boolean' && crossOriginIsolated;
 
 export type {HashSession} from '../lib/types';
 
@@ -25,7 +33,7 @@ export interface BenchmarkRow {
   chunkSize: number;
   iteration: number;
   elapsedMs: number;
-  throughputMbps: number;
+  throughputGbps: number;
   hash: string;
   match: boolean | null;
 }
@@ -36,7 +44,7 @@ export interface BenchmarkSummary {
   chunkSize: number;
   totalBytes: number;
   totalMs: number;
-  avgMbps: number;
+  avgGbps: number;
 }
 
 export interface ProgressUpdate {
@@ -58,11 +66,29 @@ export const implementations: AlgoImpl[] = [
     ? [{algoName: 'SHA-256', name: 'hash-wasm (simd)', ...sha256WasmSimd}]
     : []),
   {algoName: 'SHA-256', name: 'asmjs', ...sha256Asmjs},
+  ...(wasmSimdSupported
+    ? [{algoName: 'SHA-256', name: 'awasm-noble (simd)', ...sha256AwasmNobleSimd}]
+    : []),
+  ...(wasmThreadsSupported
+    ? [{algoName: 'SHA-256', name: 'awasm-noble (threads)', ...sha256AwasmNobleThreads}]
+    : []),
   {algoName: 'BLAKE3', name: 'hash-wasm', ...blake3Wasm},
   ...(wasmSimdSupported
     ? [{algoName: 'BLAKE3', name: 'hash-wasm (simd)', ...blake3WasmSimd}]
     : []),
+  ...(wasmSimdSupported
+    ? [{algoName: 'BLAKE3', name: 'awasm-noble (simd)', ...blake3AwasmNobleSimd}]
+    : []),
+  ...(wasmThreadsSupported
+    ? [{algoName: 'BLAKE3', name: 'awasm-noble (threads)', ...blake3AwasmNobleThreads}]
+    : []),
   {algoName: 'BLAKE2b', name: 'hash-wasm', ...blake2Wasm},
+  ...(wasmSimdSupported
+    ? [{algoName: 'BLAKE2b', name: 'awasm-noble (simd)', ...blake2AwasmNobleSimd}]
+    : []),
+  ...(wasmThreadsSupported
+    ? [{algoName: 'BLAKE2b', name: 'awasm-noble (threads)', ...blake2AwasmNobleThreads}]
+    : []),
 ];
 
 let nextJobId = 0;
@@ -116,7 +142,8 @@ export async function runBenchmark(
               chunkSize === STREAM_CHUNK ? undefined : chunkSize,
             );
 
-            const throughputMbps = file.size / (elapsedMs / 1000) / (1024 * 1024);
+            const throughputGbps =
+              file.size / (elapsedMs / 1000) / (1024 * 1024 * 1024);
 
             rows.push({
               fileName: file.name,
@@ -126,7 +153,7 @@ export async function runBenchmark(
               chunkSize,
               iteration: iter,
               elapsedMs,
-              throughputMbps,
+              throughputGbps,
               hash,
               match: null,
             });
@@ -168,19 +195,20 @@ export async function runBenchmark(
       if (implRows.length === 0) continue;
       const totalBytes = implRows.reduce((sum, r) => sum + r.fileSize, 0);
       const totalMs = implRows.reduce((sum, r) => sum + r.elapsedMs, 0);
-      const avgMbps = totalMs > 0 ? totalBytes / (totalMs / 1000) / (1024 * 1024) : 0;
+      const avgGbps =
+        totalMs > 0 ? totalBytes / (totalMs / 1000) / (1024 * 1024 * 1024) : 0;
       summary.push({
         algoName: impl.algoName,
         implName: impl.name,
         chunkSize,
         totalBytes,
         totalMs,
-        avgMbps,
+        avgGbps,
       });
     }
   }
 
-  summary.sort((a, b) => b.avgMbps - a.avgMbps);
+  summary.sort((a, b) => b.avgGbps - a.avgGbps);
 
   return {rows, summary};
 }
@@ -203,8 +231,8 @@ export function formatMs(ms: number): string {
   return ms < 1000 ? `${ms.toFixed(1)} ms` : `${(ms / 1000).toFixed(2)} s`;
 }
 
-export function formatMbps(mbps: number): string {
-  return `${mbps.toFixed(2)} MB/s`;
+export function formatGbps(gbps: number): string {
+  return `${gbps.toFixed(2)} GB/s`;
 }
 
 export function truncateHash(hash: string, len = 12): string {

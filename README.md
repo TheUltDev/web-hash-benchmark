@@ -9,12 +9,18 @@ Browser benchmark for hashing large user-supplied files. Compares incremental ha
 | SHA-256 | hash-wasm | [Daninet/hash-wasm](https://github.com/Daninet/hash-wasm) |
 | SHA-256 | hash-wasm (simd) | [@ult/hash-wasm](https://www.npmjs.com/package/@ult/hash-wasm) (when WASM SIMD is available) |
 | SHA-256 | asmjs | Custom asm.js in [`hash/sha256/asmjs/`](hash/sha256/asmjs/) |
+| SHA-256 | awasm-noble (simd) | [@awasm/noble](https://github.com/paulmillr/awasm-noble) `wasm` backend (when WASM SIMD is available) |
+| SHA-256 | awasm-noble (threads) | [@awasm/noble](https://github.com/paulmillr/awasm-noble) `wasm_threads` backend (when cross-origin isolated) |
 | SHA-256 | crypto.subtle | Browser Web Crypto API (`crypto.subtle.digest`) |
 | BLAKE3 | hash-wasm | [Daninet/hash-wasm](https://github.com/Daninet/hash-wasm) |
 | BLAKE3 | hash-wasm (simd) | [@ult/hash-wasm](https://www.npmjs.com/package/@ult/hash-wasm) (when WASM SIMD is available) |
+| BLAKE3 | awasm-noble (simd) | [@awasm/noble](https://github.com/paulmillr/awasm-noble) `wasm` backend (when WASM SIMD is available) |
+| BLAKE3 | awasm-noble (threads) | [@awasm/noble](https://github.com/paulmillr/awasm-noble) `wasm_threads` backend (when cross-origin isolated) |
 | BLAKE2b | hash-wasm | [Daninet/hash-wasm](https://github.com/Daninet/hash-wasm) |
+| BLAKE2b | awasm-noble (simd) | [@awasm/noble](https://github.com/paulmillr/awasm-noble) `wasm` backend (when WASM SIMD is available) |
+| BLAKE2b | awasm-noble (threads) | [@awasm/noble](https://github.com/paulmillr/awasm-noble) `wasm_threads` backend (when cross-origin isolated) |
 
-The SIMD variants are omitted automatically when the browser does not support WebAssembly SIMD. The UI shows a badge indicating whether SIMD is available.
+The hash-wasm (simd) and awasm-noble (simd) variants are omitted automatically when the browser does not support WebAssembly SIMD. The `awasm-noble (threads)` variants require cross-origin isolation (`Cross-Origin-Opener-Policy: same-origin` plus `Cross-Origin-Embedder-Policy`). The Vite dev server uses `credentialless` COEP (works with HMR and embedded dev tooling); `npm run preview` uses stricter `require-corp`. Both send `Cross-Origin-Resource-Policy: cross-origin` on served assets. The UI shows badges indicating whether SIMD and WASM threads are available.
 
 The `crypto.subtle` row uses the typical one-shot pattern (`file.arrayBuffer()` then `crypto.subtle.digest`), not incremental streaming. It is omitted when the file exceeds a memory-based size limit (2 GiB when browser memory cannot be detected, or higher when `performance.memory` / `navigator.deviceMemory` hints are available). BLAKE3 and BLAKE2b are not available via `crypto.subtle`.
 
@@ -40,7 +46,7 @@ Leave it off to hash the dropped `File` directly with async streaming. Chunk siz
 For each run the benchmark records:
 
 - Elapsed time (ms)
-- Throughput (MB/s)
+- Throughput (GB/s)
 - Hash digest (hex)
 
 Hashes from every implementation of the same algorithm and iteration are compared. Mismatches are highlighted in the results table. A summary ranks implementations by average throughput.
@@ -59,18 +65,27 @@ Hashes from every implementation of the same algorithm and iteration are compare
 hash/
   sha256/
     asmjs/       # Custom asm.js SHA-256 + worker
+    awasm-noble-simd/ # @awasm/noble wasm wrapper + worker
+    awasm-noble-threads/ # @awasm/noble wasm_threads wrapper + worker
     wasm/        # hash-wasm wrapper + worker
     wasm-simd/   # @ult/hash-wasm SIMD wrapper + worker
     subtle/      # crypto.subtle.digest wrapper + worker
   blake3/
+    awasm-noble-simd/
+    awasm-noble-threads/
     wasm/
     wasm-simd/
   blake2/
+    awasm-noble-simd/
+    awasm-noble-threads/
     wasm/
 lib/
   fs.ts          # OPFS read/write helpers
   session.ts     # Long-lived worker session wrapper
-  wasm-worker.ts # Shared WASM worker harness
+  awasm-noble-wasm/ # Tree-shaken @awasm/noble wasm backend glue
+  awasm-noble-threads/ # Tree-shaken @awasm/noble wasm_threads backend glue
+  awasm-worker.ts # Shared @awasm/noble worker harness
+  wasm-worker.ts # Shared hash-wasm worker harness
   types.ts       # Shared types and interfaces
 src/
   main.ts        # UI (file drop, controls, results table)
